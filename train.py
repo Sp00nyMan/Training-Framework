@@ -8,7 +8,7 @@ from torch import nn, optim
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms, utils
 
-from util import MetricsCalculator, GlowLoss, preprocess_images
+from util import MetricsCalculator, RealNVPLoss
 
 parser = argparse.ArgumentParser(description="Glow trainer")
 
@@ -22,7 +22,7 @@ parser.add_argument("--resume", type=str, default=None, help="resume file name")
 
 # Model Architechture
 parser.add_argument("--model", help="Name of the architechture", 
-                    choices=["g_base", "g_vit", "g_revvit"], default="base")
+                    choices=["r_base", "g_vit", "g_revvit"], default="base")
 parser.add_argument("--model-args", nargs="+", default=[])
 
 # Misc
@@ -30,7 +30,6 @@ parser.add_argument("--debug", action="store_true")
 
 
 img_size = 32
-n_bits = 5
 temp = 0.7
 
 def main():
@@ -77,7 +76,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [args.epochs * 0.5, args.epochs * 0.75], verbose=True)
     global criterion
-    criterion = GlowLoss(3, img_size, 2.0**n_bits)
+    criterion = RealNVPLoss()
 
     print('Initializing KID and FID..')
     global metrics_calculator
@@ -95,14 +94,13 @@ def train(epoch, model: nn.Module, optimizer, dataloader: DataLoader):
     
     total_loss = 0
     for i, (images, _) in enumerate(dataloader):
-        # optimizer.zero_grad()
-        images = preprocess_images(images, device, n_bits)
+        optimizer.zero_grad()
+        images = images.to(device)
 
-        log_p, log_det, _ = model(images)
+        z, sldj = model(images)
 
-        loss, log_p, log_det = criterion(log_p, log_det)
+        loss = criterion(z, sldj)
         loss *= args.loss_scale
-        model.zero_grad()
         loss.backward()
         optimizer.step()
 
@@ -112,16 +110,16 @@ def train(epoch, model: nn.Module, optimizer, dataloader: DataLoader):
     print("Train Loss", epoch, avg_loss)
 
 
-
 def test(epoch, model: nn.Module, dataloader: DataLoader):
     model.eval()
     total_loss = 0
     with torch.inference_mode():
         for images, _ in dataloader:
-            images = preprocess_images(images, device, n_bits)
+            images = images.to(device)
 
-            log_p, log_det, _ = model(images)
-            loss, log_p, log_det = criterion(log_p, log_det)
+            z, sldj = model(images)
+
+            loss = criterion(z, sldj)
             loss *= args.loss_scale
             total_loss += loss.item()
     
@@ -152,12 +150,11 @@ def test(epoch, model: nn.Module, dataloader: DataLoader):
     wandb.log({"samples": wandb.Image(transforms.ToPILImage()(images_concat))}, epoch)
 
 
-from models import calc_z_shapes
 def sample(model):
-    z_list = [torch.randn(args.n_samples, *shape).to(device) * temp \
-                for shape in calc_z_shapes(3, 32, len(model.blocks))]
+    z = torch.randn((args.n_samples, 3, img_size, img_size), dtype=torch.float32, device=device)
     with torch.inference_mode():
-        samples = model.reverse(z_list)
+        x, _ = model(z, reverse=True)
+        samples = torch.sigmoid(x)
     return samples
 
 

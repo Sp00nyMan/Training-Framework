@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from tqdm import tqdm
 from math import log
@@ -45,20 +46,28 @@ class MetricsCalculator:
         return metrics_dict
 
 
-class GlowLoss(nn.Module):
-    def __init__(self, input_channels, input_size, n_bins) -> None:
-        super(GlowLoss, self).__init__()
-        self.n_pixels = input_size ** 2 * input_channels
-        self.base_loss = -log(n_bins) * self.n_pixels
-    
-    def forward(self, log_p, log_det):
-        log_det = log_det.mean()
-        loss = self.base_loss + log_p + log_det
-        return (
-            (-loss / (log(2) * self.n_pixels)).mean(), 
-            (log_p / (log(2) * self.n_pixels)).mean(), 
-            (log_det / (log(2) * self.n_pixels)).mean(),
-        )
+class RealNVPLoss(nn.Module):
+    """Get the NLL loss for a RealNVP model.
+
+    Args:
+        k (int or float): Number of discrete values in each input dimension.
+            E.g., `k` is 256 for natural images.
+
+    See Also:
+        Equation (3) in the RealNVP paper: https://arxiv.org/abs/1605.08803
+    """
+    def __init__(self, k=256):
+        super(RealNVPLoss, self).__init__()
+        self.k = k
+
+    def forward(self, z, sldj):
+        prior_ll = -0.5 * (z ** 2 + np.log(2 * np.pi))
+        prior_ll = prior_ll.reshape(z.size(0), -1).sum(-1) \
+            - np.log(self.k) * np.prod(z.size()[1:])
+        ll = prior_ll + sldj
+        nll = -ll.mean()
+
+        return nll
 
 
 def preprocess_images(images: Tensor, device, n_bits):
