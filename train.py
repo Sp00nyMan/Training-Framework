@@ -130,7 +130,7 @@ def test(epoch, model: nn.Module, dataloader: DataLoader):
         "epoch": epoch
     }
     os.makedirs("checkpoints", exist_ok=True)
-    last_path = os.path.join("checkpoints", f"{args.model}_{epoch - 5}.pt")
+    last_path = os.path.join("checkpoints", f"{args.model}_{epoch - 3}.pt")
     if os.path.exists(last_path):
         os.remove(last_path)
     path = os.path.join("checkpoints", f"{args.model}_{epoch}.pt")
