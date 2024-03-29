@@ -4,7 +4,7 @@
 #SBATCH --time=23:59:59
 #SBATCH --nodes=1
 #SBATCH --mem=32000
-#SBATCH --output=logs/output-revvit.txt
+#SBATCH --output=logs/output-vit.txt
 
 module load miniconda3
 source ~/.bashrc
@@ -16,4 +16,4 @@ echo "--------------------------------------------------------------------------
 echo "Job ID: " $SLURM_JOB_ID
 echo "Job Name: " $SLURM_JOB_NAME
 
-python train.py --epochs 60 --model revvit --resume revvit_51.pt
+python train.py --model g_vit

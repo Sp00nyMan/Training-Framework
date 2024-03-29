@@ -13,7 +13,7 @@ from util import MetricsCalculator, GlowLoss, preprocess_images
 parser = argparse.ArgumentParser(description="Glow trainer")
 
 # Train settings
-parser.add_argument("--epochs", default=1000, type=int)
+parser.add_argument("--epochs", default=60, type=int)
 parser.add_argument("--batch", default=16, type=int, help="batch size")
 parser.add_argument("--lr", default=1e-4, type=float, help="learning rate") # Results in NaN weigths if set to higher value
 parser.add_argument("--loss_scale", type=float, default=1.)
@@ -22,7 +22,7 @@ parser.add_argument("--resume", type=str, default=None, help="resume file name")
 
 # Model Architechture
 parser.add_argument("--model", help="Name of the architechture", 
-                    choices=["base", "vit", "revvit"], default="base")
+                    choices=["g_base", "g_vit", "g_revvit"], default="base")
 parser.add_argument("--model-args", nargs="+", default=[])
 
 # Misc
@@ -37,7 +37,6 @@ def main():
     transform_train = transforms.Compose(
         [
             transforms.Resize(img_size),
-            transforms.CenterCrop(img_size),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
         ]
@@ -46,8 +45,6 @@ def main():
     transform_test = transforms.Compose(
         [
             transforms.Resize(img_size),
-            transforms.CenterCrop(img_size),
-            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
         ]
     )
@@ -138,7 +135,12 @@ def test(epoch, model: nn.Module, dataloader: DataLoader):
     last_path = os.path.join("checkpoints", f"{args.model}_{epoch - 5}.pt")
     if os.path.exists(last_path):
         os.remove(last_path)
-    torch.save(state, os.path.join("checkpoints", f"{args.model}_{epoch}.pt"))
+    path = os.path.join("checkpoints", f"{args.model}_{epoch}.pt")
+    torch.save(state, path)
+
+    arti = wandb.Artifact(args.model, "model")
+    arti.add_file(path)
+    wandb.log_artifact(arti, epoch)
 
     sample_images = sample(model)
 
@@ -163,7 +165,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    wandb.init(project="Transformer-Based-GLOW-steplr", 
+    wandb.init(project="All Architectures", 
             config={
                 "architechture": args.model,
                 "dataset": "CIFAR-10",
