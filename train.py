@@ -22,7 +22,7 @@ parser.add_argument("--resume", type=str, default=None, help="resume file name")
 
 # Model Architechture
 parser.add_argument("--model", help="Name of the architechture", 
-                    choices=["r_base", "g_vit", "g_revvit"], default="base")
+                    choices=["r_base", "r_vit", "r_revvit"], default="r_base")
 parser.add_argument("--model-args", nargs="+", default=[])
 
 # Misc
@@ -129,16 +129,17 @@ def test(epoch, model: nn.Module, dataloader: DataLoader):
         "test_loss": avg_loss,
         "epoch": epoch
     }
-    os.makedirs("checkpoints", exist_ok=True)
-    last_path = os.path.join("checkpoints", f"{args.model}_{epoch - 3}.pt")
-    if os.path.exists(last_path):
-        os.remove(last_path)
-    path = os.path.join("checkpoints", f"{args.model}_{epoch}.pt")
-    torch.save(state, path)
+    if not args.debug:
+        os.makedirs("checkpoints", exist_ok=True)
+        last_path = os.path.join("checkpoints", f"{args.model}_{epoch - 3}.pt")
+        if os.path.exists(last_path):
+            os.remove(last_path)
+        path = os.path.join("checkpoints", f"{args.model}_{epoch}.pt")
+        torch.save(state, path)
 
-    arti = wandb.Artifact(args.model, "model")
-    arti.add_file(path)
-    wandb.log_artifact(arti, epoch)
+        arti = wandb.Artifact(args.model, "model")
+        arti.add_file(path)
+        wandb.log_artifact(arti, epoch)
 
     sample_images = sample(model)
 
