@@ -21,8 +21,8 @@ parser.add_argument("--n_samples", default=20, type=int, help="number of samples
 parser.add_argument("--resume", type=str, default=None, help="resume file name")
 
 # Model Architechture
-parser.add_argument("--model", help="Name of the architechture", 
-                    choices=["g_base", "g_vit", "g_revvit"], default="base")
+parser.add_argument("--model", help="Name of the architechture. A directory with this name must be an importable module in the "models" folder.", 
+                    choices=["g_base", "g_vit", "g_revvit"], default="g_base")
 parser.add_argument("--model-args", nargs="+", default=[])
 
 # Misc
